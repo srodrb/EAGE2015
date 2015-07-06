@@ -4,3 +4,7 @@ LIBS=
 INCS=
 
 TARGET=
+
+all=$(TARGET)
+
+
