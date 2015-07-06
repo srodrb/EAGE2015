@@ -18,9 +18,10 @@
 
 #include "../inc/interfaces.h"
 
+
 int main(int argc, const char *argv[])
 {
-    
+    fprintf(stderr, "Hola mundo\n");
     return 0;
 }
 

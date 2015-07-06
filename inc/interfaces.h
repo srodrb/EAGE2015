@@ -18,6 +18,7 @@
 
 #ifndef _COMMON_H_
 #define _COMMON_H_
+	#define __ALIGN_BOUNDARY 32
 
 	#include <stdio.h>
 	#include <stdlib.h>
@@ -27,11 +28,23 @@
 	#include <sys/time.h>
     using namespace std;
 
+	typedef struct
+	{
+		double re;
+		double im;
+	} complex32;
+	
+	typedef struct
+	{
+		float re;
+		float im;
+	} complex16;
+
 	double dtime(void);
 	
-    inline void* safe_malloc(size_t size)
+    inline void* __malloc(size_t size)
     {
-        void* buffer = malloc(size);
+		void* buffer = _mm_malloc( size, (size_t) __ALIGN_BOUNDARY);
         if( !buffer){
             fprintf(stderr, "Cant allocate memory for buffer (%llu bytes)\n", size);
             abort();
@@ -52,10 +65,8 @@
 		int*    	col_ind; 
 		int*    	pointerB;      // MKL pointerB, Nvidia row_ptr
 		int*        pointerE;      // MKL pointerE
-		float*      rval__single;
-        float*      ival__single;
-		double* 	rval__double;
-        double*     ival__double;
+		complex16*  csr_scoef;
+		complex32*  csr_dcoef;
 	}CSR;
 
 	typedef struct{
@@ -76,15 +87,15 @@
 
 	template <typename FORMAT> FORMAT* LoadMatrix(void) {}; 
 
-
     template <> inline CSR* LoadMatrix <CSR> (void)
     {
         CSR* Matrix     = new CSR;
-        FILE* fbin = fopen( "../../TestMatrices/em.csr" , "rb");
+		string filepath = "../TestMatrices/em.csr";
+        FILE* fbin = fopen( filepath.c_str() , "rb");
         
         if( !fbin )
         {
-            fprintf(stderr, "Cant open filename %s correctly!\n", name.c_str() );
+            fprintf(stderr, "Cant open filename %s correctly!\n", filepath.c_str() );
             abort();
         }
 
@@ -97,24 +108,22 @@
         fprintf(stderr, "Dimensiones de la matriz: nnrows%d  ncols %d  nnz %d  nptr %d\n", Matrix->nrows, Matrix->ncols, Matrix->nnz, Matrix->nptr);
 
         // allocate memory for arrays
-        Matrix->rval__double  = (double*)  safe_malloc( Matrix->nnz  * sizeof(double));
-        Matrix->ival__double  = (double*)  safe_malloc( Matrix->nnz  * sizeof(double));
-        Matrix->rval__single  = (float* )  safe_malloc( Matrix->nnz  * sizeof(float ));
-        Matrix->ival__single  = (float* )  safe_malloc( Matrix->nnz  * sizeof(float ));
-        Matrix->col_ind       = (int*   )  safe_malloc( Matrix->nnz  * sizeof(int   ));
-        Matrix->pointerB      = (int*   )  safe_malloc( Matrix->nptr * sizeof(int   ));
-        Matrix->pointerE      = (int*   )  safe_malloc( Matrix->nptr * sizeof(int   ));
+        Matrix->csr_dcoef     = (complex32*)  __malloc( Matrix->nnz  * sizeof(complex32));
+        Matrix->csr_scoef     = (complex16*)  __malloc( Matrix->nnz  * sizeof(complex16));
+        Matrix->col_ind       = (int*   )     __malloc( Matrix->nnz  * sizeof(int   ));
+        Matrix->pointerB      = (int*   )     __malloc( Matrix->nptr * sizeof(int   ));
+        Matrix->pointerE      = (int*   )     __malloc( Matrix->nptr * sizeof(int   ));
 
         // read arrays
-        fread( Matrix->rval__double , sizeof(double), Matrix->nnz , fbin);
-        fread( Matrix->ival__double , sizeof(double), Matrix->nnz , fbin);
-        fread( Matrix->col_ind      , sizeof(int   ), Matrix->nnz , fbin);
-        fread( Matrix->pointerB     , sizeof(int   ), Matrix->nptr, fbin);
+        fread( &Matrix->csr_dcoef[0].re , sizeof(double), Matrix->nnz , fbin);
+        fread( &Matrix->csr_dcoef[0].im , sizeof(double), Matrix->nnz , fbin);
+        fread( Matrix->col_ind         , sizeof(int   ), Matrix->nnz , fbin);
+        fread( Matrix->pointerB        , sizeof(int   ), Matrix->nptr, fbin);
 
         // copy double precision array to single precision
         for (int i = 0; i < Matrix->nnz; i++){
-            Matrix->rval__single[i] = (float) Matrix->rval__double[i];
-            Matrix->ival__single[i] = (float) Matrix->ival__double[i];
+            Matrix->csr_scoef[i].re = (float) Matrix->csr_dcoef[i].re;
+            Matrix->csr_scoef[i].im = (float) Matrix->csr_dcoef[i].im;
         }
 
         // el formato de Intel requiere rellenar el cuato array
@@ -127,13 +136,14 @@
     };
 
 
-    template <> inline ELL* LoadMatrix <ELL> ( string MatrixPath )
+    template <> inline ELL* LoadMatrix <ELL> (void)
     {
         ELL* Matrix = new ELL;
-        FILE* fbin = fopen( "../../TestMatrices/em.ell" , "rb");
+		string filepath = "../TestMatrices/em.ell";
+        FILE* fbin = fopen( filepath.c_str()  , "rb");
         if( !fbin )
         {
-            fprintf(stderr, "Cant open filename %s correctly!\n", name.c_str() );
+            fprintf(stderr, "Cant open filename %s correctly!\n", filepath.c_str() );
             abort();
         }
 
@@ -147,12 +157,12 @@
         int nelems = Matrix->ell_len * Matrix->nrows;
 
         // allocate memory for arrays
-        Matrix->rval__double = (double*)  safe_malloc( nelems         * sizeof(double));
-        Matrix->ival__double = (double*)  safe_malloc( nelems         * sizeof(double));
-        Matrix->rval__single = (float* )  safe_malloc( nelems         * sizeof(float ));
-        Matrix->ival__single = (float* )  safe_malloc( nelems         * sizeof(float ));
-        Matrix->ell_col      = (int*   )  safe_malloc( nelems         * sizeof(int   ));
-        Matrix->ell_nnz      = (int*   )  safe_malloc( Matrix->nrows  * sizeof(int   ));
+        Matrix->rval__double = (double*)  __malloc( nelems         * sizeof(double));
+        Matrix->ival__double = (double*)  __malloc( nelems         * sizeof(double));
+        Matrix->rval__single = (float* )  __malloc( nelems         * sizeof(float ));
+        Matrix->ival__single = (float* )  __malloc( nelems         * sizeof(float ));
+        Matrix->ell_col      = (int*   )  __malloc( nelems         * sizeof(int   ));
+        Matrix->ell_nnz      = (int*   )  __malloc( Matrix->nrows  * sizeof(int   ));
 
         // read arrays
         fread( Matrix->rval__double, sizeof(double), nelems, fbin);
@@ -186,7 +196,7 @@
         for (int j = 0; j < rows; j++) {
             fprintf(stderr, "Row[%d]    ", j);
             for (int i = A->pointerB[j]; i < A->pointerB[j+1]; i++) {
-                fprintf(stderr, "(%.2f,%.2f)    ", A->rval__double[i], A->ival__double[i] );
+                fprintf(stderr, "(%.2f,%.2f)    ", A->csr_dcoef[i].re, A->csr_dcoef[i].im );
             }
             fprintf(stderr, "\n");
         }
@@ -210,7 +220,7 @@
 	template <typename T> inline T* array_new( int len, T value)
 	{
 		fprintf(stderr, "Creating array of size: %lu bytes\n", sizeof(T) * len);
-		T* buffer = (T*) safe_malloc( len * sizeof(T));
+		T* buffer = (T*) __malloc( len * sizeof(T));
 		
 		if( ! buffer ){
 			printf("Cant allocate array\n");
@@ -225,7 +235,7 @@
 
 	template <typename T> inline T* array_new( int len)
 	{
-			T* buffer = (T*) safe_malloc( len * sizeof(T));
+			T* buffer = (T*) __malloc( len * sizeof(T));
 		
 		if( ! buffer ){
 			printf("Cant allocate array\n");
@@ -239,4 +249,4 @@
 	};
 
 
-#endif // _COMMON_H_
+#endif // _INTERFACES_H_
