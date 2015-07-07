@@ -24,5 +24,12 @@ template <int ARCH, typename FORMAT, typename PREC> void spmv( FORMAT* M) { /*  
 
 template <> void spmv <XEON, CSR, float> (CSR* M)
 {
-	
+    char trans = 'n';
+    char matdescra[6];
+    matdescra[0] = 'g';
+    matdescra[1] = 'n';
+    matdescra[2] = 'n';
+    matdescra[3] = 'c';
+
+    mkl_zcsrmv( &trans, &A->nrows, );
 };
