@@ -65,8 +65,12 @@
 		int*    	col_ind; 
 		int*    	pointerB;      // MKL pointerB, Nvidia row_ptr
 		int*        pointerE;      // MKL pointerE
+		
 		complex16*  csr_scoef;
 		complex32*  csr_dcoef;
+
+		complex16*  csr_srhs;
+		complex32*  csr_drhs;
 	}CSR;
 
 	typedef struct{
@@ -85,12 +89,12 @@
         double*  ival__double;
 	}ELL;
 
-	template <typename FORMAT> FORMAT* LoadMatrix(void) {}; 
+	template <typename FORMAT> FORMAT* LoadMatrix( string matrixname) {}; 
 
-    template <> inline CSR* LoadMatrix <CSR> (void)
+    template <> inline CSR* LoadMatrix <CSR> ( string matrixname )
     {
         CSR* Matrix     = new CSR;
-		string filepath = "../TestMatrices/em.csr";
+		string filepath = "TestMatrices/" + matrixname + ".csr";
         FILE* fbin = fopen( filepath.c_str() , "rb");
         
         if( !fbin )
@@ -115,12 +119,11 @@
         Matrix->pointerE      = (int*   )     __malloc( Matrix->nptr * sizeof(int   ));
 
         // read arrays
-        fread( &Matrix->csr_dcoef[0].re , sizeof(double), Matrix->nnz , fbin);
-        fread( &Matrix->csr_dcoef[0].im , sizeof(double), Matrix->nnz , fbin);
-        fread( Matrix->col_ind         , sizeof(int   ), Matrix->nnz , fbin);
-        fread( Matrix->pointerB        , sizeof(int   ), Matrix->nptr, fbin);
+        fread( Matrix->csr_dcoef        , sizeof(double), 2 * Matrix->nnz , fbin);
+        fread( Matrix->col_ind          , sizeof(int   ), Matrix->nnz , fbin);
+        fread( Matrix->pointerB         , sizeof(int   ), Matrix->nptr, fbin);
 
-        // copy double precision array to single precision
+        // cast double precision array to single precision
         for (int i = 0; i < Matrix->nnz; i++){
             Matrix->csr_scoef[i].re = (float) Matrix->csr_dcoef[i].re;
             Matrix->csr_scoef[i].im = (float) Matrix->csr_dcoef[i].im;
@@ -130,16 +133,34 @@
         for (int i = 0; i < Matrix->nptr -1; i++) 
             Matrix->pointerE[i] = Matrix->pointerB[i+1];		
 
+		// ahora leemos el lado derecho del sistema (RHS)
+		Matrix->csr_drhs = (complex32*) __malloc( Matrix->nnz * sizeof(complex32));
+		Matrix->csr_srhs = (complex16*) __malloc( Matrix->nnz * sizeof(complex16));
+
+		fread( Matrix->csr_drhs, sizeof(double), 2*Matrix->nnz, fbin);
+		for( int i=0; i<Matrix->nnz; i++){
+			Matrix->csr_srhs[i].re = (float) Matrix->csr_drhs[i].re;
+			Matrix->csr_srhs[i].im = (float) Matrix->csr_drhs[i].im;
+		};
+
         // close file
         fclose( fbin );
+
+		// imprimimos los 10 primeros elementos de la matriz
+		for (int i = 0; i < 10; i++) {
+			fprintf(stderr, "%d     %d     %.5f    %.5f\n",    \
+			Matrix->pointerB[i], Matrix->col_ind[i],           \
+		   	Matrix->csr_dcoef[i].re, Matrix->csr_dcoef[i].im  );
+		}
+
         return Matrix;
     };
 
 
-    template <> inline ELL* LoadMatrix <ELL> (void)
+    template <> inline ELL* LoadMatrix <ELL> ( string matrixname)
     {
         ELL* Matrix = new ELL;
-		string filepath = "../TestMatrices/em.ell";
+		string filepath = "TestMatrices/" + matrixname + ".ell";
         FILE* fbin = fopen( filepath.c_str()  , "rb");
         if( !fbin )
         {
@@ -248,5 +269,7 @@
 		return buffer;
 	};
 
+
+	
 
 #endif // _INTERFACES_H_

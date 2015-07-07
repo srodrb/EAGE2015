@@ -21,7 +21,9 @@
 
 int main(int argc, const char *argv[])
 {
-    fprintf(stderr, "Hola mundo\n");
+	CSR* M = LoadMatrix<CSR> ("fd_weiss_small");
+
+	delete(M);
     return 0;
 }
 

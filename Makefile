@@ -24,7 +24,7 @@ interfaces.o: ./inc/interfaces.h ./src/interfaces.cpp
 	$(CC) $(FLAGS) $+ -c $(INCS) $(LIBS)
 
 clean:
-	rm -rf obj/* bin/*
+	rm -rf obj/* bin/* *.o $(TARGET)
 
 run:
 	./bin/spmv
