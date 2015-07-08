@@ -58,7 +58,6 @@ int main(int argc, const char *argv[])
 		abort();
 	}
 
-
 	int nrows, ncols, max_len, nelems;
 	if( fscanf( fdescriptor, "%d", &nrows) != 1)
 	{
@@ -83,7 +82,6 @@ int main(int argc, const char *argv[])
 
 	nelems = nrows * max_len;
 
-
 	// generamos el fichero binario para almacenar la matriz
 	string bname = path + ".ell";
 	fprintf(stderr, "La ruta de destino del fichero binario es %s\n", bname.c_str() );
@@ -94,60 +92,96 @@ int main(int argc, const char *argv[])
 	
 	
 	// ahora reservamos memoria y leemos los elementos de la matriz
-	int*       ell_nnz  = (int*   ) malloc(   nrows   * sizeof(int   ));
-	int*       ell_col  = (int*   ) malloc(   nelems  * sizeof(int   ));
-	double*    ell_dat  = (double*) malloc( 2*nelems  * sizeof(double));
+	int*       ell_nnz  = (int*   ) malloc( nrows   * sizeof(int   ));
+	int*       ell_col  = (int*   ) malloc( nelems  * sizeof(int   ));
+	double*    ell_re   = (double*) malloc( nelems  * sizeof(double));
+	double*    ell_im   = (double*) malloc( nelems  * sizeof(double));
 	
 	// leemos el array de coeficientes no nulos
-	string values_path = path + ".dat";
+	string values_path = path + ".val";
     fprintf(stderr, "Abriendo el fichero de valores %s\n", values_path.c_str() );
 	FILE *fvalues = fopen( values_path.c_str(), "r"); 
-    int count = 0;
+	if( ! fvalues) {
+		fprintf(stderr, "ERROR: no podemos abrir el fichero %s correctamente\n", values_path.c_str() );
+		abort();
+	}
 	for (int i = 0; i < nelems; i++) 
 	{
-		if( fscanf( fvalues, "%lf  %lf", &ell_dat[count], &ell_dat[count+1]) != 1)
+		if( fscanf( fvalues, "%lf  %lf", &ell_re[i], &ell_im[i]) != 2)
 		{
 			fprintf(stderr, "Problema al leer el fichero de valores\n");
 			abort();
 		}
-        count += 2;
 	}
 	fclose( fvalues);
-	fwrite( ell_dat, sizeof(double), 2*nelems, fbin);
-	free  ( ell_dat); 
+	fwrite( ell_re, sizeof(double), nelems, fbin);
+	fwrite( ell_im, sizeof(double), nelems, fbin);
+	free  ( ell_re);
+    free  ( ell_im);	
 
 	// leemos el array de indices de columna
-	string colind_path = path + ".col";
-  	fprintf(stderr, "Abriendo el fichero de valores %s\n", colind_path.c_str() );
-	FILE *findices = fopen( colind_path.c_str(), "r"); 
+	string col_path = path + ".col";
+  	fprintf(stderr, "Abriendo el fichero de valores %s\n", col_path.c_str() );
+	FILE *fcol = fopen( col_path.c_str(), "r"); 
+	if( ! fcol) {
+		fprintf(stderr, "ERROR: no podemos abrir el fichero %s correctamente\n", col_path.c_str() );
+		abort();
+	}
 	for (int i = 0; i < nelems; i++) 
 	{
-		if( fscanf( findices, "%d", &ell_col[i] ) != 1)
+		if( fscanf( fcol, "%d", &ell_col[i] ) != 1)
 		{
 			fprintf(stderr, "Problema al leer el fichero de indices de columnas\n");
 			abort();
 		}
 	}
-	fclose( findices);
+	fclose( fcol);
 	fwrite( ell_col, sizeof(int), nelems, fbin);
 	free( ell_col);
 
 	// leemos el array de nnz/row
-	string rowptr_path = path + ".nnz";
-  	fprintf(stderr, "Abriendo el fichero de valores %s\n", rowptr_path.c_str() );
-	FILE *frowptr = fopen( rowptr_path.c_str(), "r"); 
+	string nnz_path = path + ".nnz";
+  	fprintf(stderr, "Abriendo el fichero de elementos por fila %s\n", nnz_path.c_str() );
+	FILE *fnnz = fopen( nnz_path.c_str(), "r"); 
 	for (int i = 0; i < nrows; i++) 
 	{
-		if( fscanf( frowptr, "%d", &ell_nnz[i] ) != 1)
+		if( fscanf( fnnz, "%d", &ell_nnz[i] ) != 1)
 		{
-			fprintf(stderr, "Problema al leer el fichero de punteros a filas\n");
+			fprintf(stderr, "Problema al leer el fichero de elementos no nulos por fila\n");
 			abort();
 		}
 	}
 	// display( nptr, row_ptr );
-	fclose( frowptr);
+	fclose( fnnz );
 	fwrite( ell_nnz, sizeof(int), nrows, fbin);
 	free( ell_nnz);
+
+
+	// leemos el lado derecho del sistema
+	double* RHS_re   = (double*) malloc( nrows  * sizeof(double));
+	double* RHS_im   = (double*) malloc( nrows  * sizeof(double));
+	string rhs_path = path + ".rhs";
+    fprintf(stderr, "Abriendo el fichero del vector del lado derecho del sistema %s\n", rhs_path.c_str() );
+	FILE *frhs = fopen( rhs_path.c_str(), "r"); 
+	for (int i = 0; i < nrows; i++) 
+	{
+		int res = fscanf( frhs, "%lf %lf", &RHS_re[i], &RHS_im[i] );
+		
+		if( res !=2)
+		{
+			fprintf(stderr, "Problema al leer el fichero de coeficientes complejos (valores leidos %d sobre %d)\n", i, nrows );
+			abort();
+		}
+
+	}
+	fclose( frhs);
+	fwrite( RHS_re, sizeof(double), nrows, fbin);
+	fwrite( RHS_im, sizeof(double), nrows, fbin);
+   	free  ( RHS_re );	
+   	free  ( RHS_im );	
+
+
+
 
 	// close binary file
 	fclose( fbin);

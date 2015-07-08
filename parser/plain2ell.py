@@ -9,6 +9,9 @@ def main(argv):
     directory = argv[0];
     mname     = argv[1];
     fname     = directory + '/' + mname
+    
+    simdlen = int(argv[2])
+
 
     M = np.loadtxt( fname + '.mat')
     dim = 97104
@@ -36,7 +39,15 @@ def main(argv):
     for i in range( rows):
         ELL_nnz[i] = M.indptr[i+1] - M.indptr[i]
 
-    nnz_max = np.max(ELL_nnz)
+    # calculamos la longitud de las filas, segun el numero max de elementos.
+    nnz_max = int( np.max(ELL_nnz) )
+
+    print 'Numero maximo de elementos por fila: ', nnz_max
+
+    # redondeamos al multiplo de la longitud SIMD
+    if(nnz_max % simdlen): nnz_max = simdlen * (1+(nnz_max/simdlen))
+
+    print 'La longitud caracteristica de el formato es ', nnz_max
 
     # ahora tenemos que crear el formato ELLPACK
     ELL_real = np.zeros( shape=(rows, nnz_max))
@@ -57,11 +68,19 @@ def main(argv):
             # copia de los indices de columna de los elementos no nulos
             ELL_col[i,0:elems] = M.indices[ M.indptr[i] : M.indptr[i+1] ]
 
+    # check 
+    for i in range(10):
+        print ELL_real[i,:]
+    
+    ELL_real = (ELL_real.flatten()).T
+    ELL_imag = (ELL_imag.flatten()).T
+
     # damos formato a los coeficientes
-    coeffs = np.column_stack( Ell_real.flatten(),T, ELL_imag.flatten().T) 
+    coeffs = np.column_stack((ELL_real, ELL_imag)) 
+
 
     # Guardamos los arrays planos
-    np.savetxt( fname + '.dat',   coeffs                                   )
+    np.savetxt( fname + '.val',   coeffs                                   )
     np.savetxt( fname + '.nnz',  (ELL_nnz).astype(int)          , fmt='%d' )
     np.savetxt( fname + '.col',  (ELL_col.flatten()).astype(int), fmt='%d' )
     
@@ -71,6 +90,11 @@ def main(argv):
     np.savetxt( fname + '.ell_des', dims , fmt='%d')
     
     print 'Matriz generada en formato ELL'
+
+    rhs = np.loadtxt( fname + ".rhs")
+    np.savetxt( fname + ".rhs", np.column_stack((rhs[:,0], rhs[:,1])) )
+
+    print 'Creado el fichero para el lado derecho del sistema'
 
 
 if __name__ == '__main__':

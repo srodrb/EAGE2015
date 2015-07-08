@@ -162,15 +162,10 @@ int main(int argc, const char *argv[])
 	
 
 	// leemos el lado derecho del sistema
-	double* RHS   = (double*) malloc( 2 * nnz  * sizeof(double));
+	double* RHS   = (double*) malloc( 2 * nrows  * sizeof(double));
 	string rhs_path = path + ".rhs";
-    fprintf(stderr, "Abriendo el fichero del vector del lado derecho de la ecuacion %s\n", rhs_path.c_str() );
+    fprintf(stderr, "Abriendo el fichero del vector del lado derecho del sistema %s\n", rhs_path.c_str() );
 	FILE *frhs = fopen( rhs_path.c_str(), "r"); 
-	if( !frhs)
-	{
-		fprintf(stderr, "No podemos abrir el fichero %s\n", rhs_path.c_str() );
-		abort();
-	}
 	count = 0;
 	for (int i = 0; i < nrows; i++) 
 	{
@@ -189,7 +184,7 @@ int main(int argc, const char *argv[])
 		count += 2;
 	}
 	fclose( frhs);
-	fwrite( RHS, sizeof(double), 2*nnz, fbin);
+	fwrite( RHS, sizeof(double), 2*nrows, fbin);
    	free  ( RHS );	
 
 

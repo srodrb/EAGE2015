@@ -21,7 +21,7 @@
 
 int main(int argc, const char *argv[])
 {
-	CSR* M = LoadMatrix<CSR> ("fd_weiss_small");
+	ELL* M = LoadMatrix<ELL> ("fd_weiss_small");
 
 	delete(M);
     return 0;

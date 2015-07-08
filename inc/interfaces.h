@@ -82,12 +82,16 @@
 		int      ell_len;
 		int*     ell_nnz;
 		int*     ell_col;
-		
-        complex16* ell_scoef;
-        complex32* ell_dcoef;
+	
+		double* ell_dreal;
+		double* ell_dimag;
+		double* rhs_dreal;
+		double* rhs_dimag;
 
-        complex16* ell_srhs;
-        complex32* ell_drhs:
+		float* ell_sreal;
+		float* ell_simag;
+		float* rhs_sreal;
+		float* rhs_simag;
 	}ELL;
 
 	template <typename FORMAT> FORMAT* LoadMatrix( string matrixname) {}; 
@@ -115,14 +119,14 @@
         // allocate memory for arrays
         Matrix->csr_dcoef     = (complex32*)  __malloc( Matrix->nnz  * sizeof(complex32));
         Matrix->csr_scoef     = (complex16*)  __malloc( Matrix->nnz  * sizeof(complex16));
-        Matrix->col_ind       = (int*   )     __malloc( Matrix->nnz  * sizeof(int   ));
-        Matrix->pointerB      = (int*   )     __malloc( Matrix->nptr * sizeof(int   ));
-        Matrix->pointerE      = (int*   )     __malloc( Matrix->nptr * sizeof(int   ));
+        Matrix->col_ind       = (int*      )  __malloc( Matrix->nnz  * sizeof(int      ));
+        Matrix->pointerB      = (int*      )  __malloc( Matrix->nptr * sizeof(int      ));
+        Matrix->pointerE      = (int*      )  __malloc( Matrix->nptr * sizeof(int      ));
 
         // read arrays
-        fread( Matrix->csr_dcoef        , sizeof(double), 2 * Matrix->nnz , fbin);
-        fread( Matrix->col_ind          , sizeof(int   ), Matrix->nnz , fbin);
-        fread( Matrix->pointerB         , sizeof(int   ), Matrix->nptr, fbin);
+        fread( Matrix->csr_dcoef , sizeof(double), 2*Matrix->nnz , fbin);
+        fread( Matrix->col_ind   , sizeof(int   ),   Matrix->nnz , fbin);
+        fread( Matrix->pointerB  , sizeof(int   ),   Matrix->nptr, fbin);
 
         // cast double precision array to single precision
         for (int i = 0; i < Matrix->nnz; i++){
@@ -179,26 +183,53 @@
         int nelems = Matrix->ell_len * Matrix->nrows;
 
         // allocate memory for arrays
-        Matrix->ell_scoef    = (complex16*)  __malloc( nelems         * sizeof(complex16));
-        Matrix->ell_dcoef    = (complex32*)  __malloc( nelems         * sizeof(complex32));
-        Matrix->ell_srhs     = (complex16*)  __malloc( nelems         * sizeof(complex16));
-        Matrix->ell_drhs     = (complex32*)  __malloc( nelems         * sizeof(complex32));
-        Matrix->ell_col      = (int*   )     __malloc( nelems         * sizeof(int      ));
-        Matrix->ell_nnz      = (int*   )     __malloc( Matrix->nrows  * sizeof(int      ));
+        Matrix->ell_dreal = (double*)  __malloc( nelems        * sizeof(double));
+        Matrix->ell_dimag = (double*)  __malloc( nelems        * sizeof(double));
+	    Matrix->ell_sreal = (float *)  __malloc( nelems        * sizeof(float ));
+    	Matrix->ell_simag = (float *)  __malloc( nelems        * sizeof(float ));
+        
+		Matrix->rhs_dreal = (double*)  __malloc( Matrix->nrows * sizeof(double));
+        Matrix->rhs_dimag = (double*)  __malloc( Matrix->nrows * sizeof(double));
+        Matrix->rhs_sreal = (float *)  __malloc( Matrix->nrows * sizeof(float ));
+        Matrix->rhs_simag = (float *)  __malloc( Matrix->nrows * sizeof(float ));
+
+		Matrix->ell_col   = (int*   )  __malloc( nelems        * sizeof(int   ));
+        Matrix->ell_nnz   = (int*   )  __malloc( Matrix->nrows * sizeof(int   ));
 
         // read arrays
-        fread( Matrix->rval__double, sizeof(double), nelems, fbin);
-        fread( Matrix->rval__single, sizeof(double), nelems, fbin);
-        fread( Matrix->ell_col , sizeof(int   ), nelems , fbin);
-        fread( Matrix->ell_nnz , sizeof(int   ), Matrix->nrows , fbin);
+        fread( Matrix->ell_dreal, sizeof(double) , nelems        , fbin);
+        fread( Matrix->ell_dimag, sizeof(double) , nelems        , fbin);
+        fread( Matrix->ell_col  , sizeof(int   ) , nelems        , fbin);
+        fread( Matrix->ell_nnz  , sizeof(int   ) , Matrix->nrows , fbin);
 
         // copy double precision array to single precision
         for (int i = 0; i < nelems; i++){
-            Matrix->rval__single[i] = (float) Matrix->rval__double[i];
-            Matrix->ival__single[i] = (float) Matrix->ival__double[i];
+            Matrix->ell_sreal[i] = (float) Matrix->ell_dreal[i];
+            Matrix->ell_simag[i] = (float) Matrix->ell_dimag[i];
         }
+		
+		// ahora cargamos el lado derecho del sistema
+        fread( Matrix->rhs_dreal, sizeof(double ), Matrix->nrows, fbin);
+        fread( Matrix->rhs_dimag, sizeof(double ), Matrix->nrows, fbin);
+        
+		// convertimos los arrays de double a single precision
+		for( int i=0; i<Matrix->nrows;i++){
+			Matrix->rhs_sreal[i] = (float) Matrix->rhs_dreal[i];
+			Matrix->rhs_simag[i] = (float) Matrix->rhs_dimag[i];
+		}
+		
+#ifdef TESTING
+		for(int i=0;i<10; i++){
+			fprintf(stderr, "Row: %d : ", i);
+			for( int j=0; j<Matrix->ell_len; j++){
+				int idx = i*Matrix->ell_len + j;
+				fprintf(stderr, "(%.2lf,%.2lfi)  ", Matrix->ell_dreal[idx], Matrix->ell_dimag[i] );
+			}
+			fprintf(stderr, "\n");
+		}
+#endif
 
-        // close file
+		// close file
         fclose( fbin );
         return Matrix;
     };
@@ -269,8 +300,5 @@
 
 		return buffer;
 	};
-
-
-	
 
 #endif // _INTERFACES_H_
