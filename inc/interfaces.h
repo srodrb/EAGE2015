@@ -83,10 +83,11 @@
 		int*     ell_nnz;
 		int*     ell_col;
 		
-        float*   rval__single;
-        float*   ival__single;
-        double*  rval__double;
-        double*  ival__double;
+        complex16* ell_scoef;
+        complex32* ell_dcoef;
+
+        complex16* ell_srhs;
+        complex32* ell_drhs:
 	}ELL;
 
 	template <typename FORMAT> FORMAT* LoadMatrix( string matrixname) {}; 
@@ -178,12 +179,12 @@
         int nelems = Matrix->ell_len * Matrix->nrows;
 
         // allocate memory for arrays
-        Matrix->rval__double = (double*)  __malloc( nelems         * sizeof(double));
-        Matrix->ival__double = (double*)  __malloc( nelems         * sizeof(double));
-        Matrix->rval__single = (float* )  __malloc( nelems         * sizeof(float ));
-        Matrix->ival__single = (float* )  __malloc( nelems         * sizeof(float ));
-        Matrix->ell_col      = (int*   )  __malloc( nelems         * sizeof(int   ));
-        Matrix->ell_nnz      = (int*   )  __malloc( Matrix->nrows  * sizeof(int   ));
+        Matrix->ell_scoef    = (complex16*)  __malloc( nelems         * sizeof(complex16));
+        Matrix->ell_dcoef    = (complex32*)  __malloc( nelems         * sizeof(complex32));
+        Matrix->ell_srhs     = (complex16*)  __malloc( nelems         * sizeof(complex16));
+        Matrix->ell_drhs     = (complex32*)  __malloc( nelems         * sizeof(complex32));
+        Matrix->ell_col      = (int*   )     __malloc( nelems         * sizeof(int      ));
+        Matrix->ell_nnz      = (int*   )     __malloc( Matrix->nrows  * sizeof(int      ));
 
         // read arrays
         fread( Matrix->rval__double, sizeof(double), nelems, fbin);
